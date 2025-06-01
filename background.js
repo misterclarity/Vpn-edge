@@ -8,7 +8,7 @@ const PROXY_SERVERS = {
 let currentProxy = null;
 
 // Function to set the proxy
-function setProxy(countryCode) {
+function setProxy(countryCode, callback) {
   if (PROXY_SERVERS[countryCode]) {
     const config = {
       mode: "fixed_servers",
@@ -23,31 +23,48 @@ function setProxy(countryCode) {
     };
     chrome.proxy.settings.set({ value: config, scope: "regular" }, function() {
       if (chrome.runtime.lastError) {
-        console.error("Error setting proxy:", chrome.runtime.lastError);
-        currentProxy = null;
+        const errorMessage = "Error setting proxy: " + chrome.runtime.lastError.message;
+        console.error(errorMessage);
+        currentProxy = null; // Ensure state is consistent
         updatePopupState(false, null);
+        if (callback) callback(false, errorMessage);
         return;
       }
-      console.log("Proxy set to:", countryCode);
+      const successMessage = "Proxy set to " + PROXY_SERVERS[countryCode].name;
+      console.log(successMessage);
       currentProxy = countryCode;
       updatePopupState(true, countryCode);
+      if (callback) callback(true, successMessage);
     });
   } else {
-    console.warn("No proxy configuration for country:", countryCode);
-    clearProxy(); // Clear proxy if country code is invalid or not found
+    const errorMessage = "No proxy configuration for country: " + countryCode;
+    console.warn(errorMessage);
+    // Attempt to clear proxy if an invalid country is chosen, might not be desired UX
+    // For now, let's just callback with failure.
+    // clearProxy();
+    if (callback) callback(false, errorMessage);
   }
 }
 
 // Function to clear the proxy
-function clearProxy() {
+function clearProxy(callback) {
   chrome.proxy.settings.clear({ scope: "regular" }, function() {
     if (chrome.runtime.lastError) {
-      console.error("Error clearing proxy:", chrome.runtime.lastError);
-      // Even if clearing fails, we update the state to reflect the intent
+      const errorMessage = "Error clearing proxy: " + chrome.runtime.lastError.message;
+      console.error(errorMessage);
+      // Even if clearing fails, we update the state to reflect the intent (disconnected)
+      // but the actual proxy settings might be in an indeterminate state.
+      // The callback should reflect the error.
+      currentProxy = null; // Assume disconnected for our internal state.
+      updatePopupState(false, null);
+      if (callback) callback(false, errorMessage);
+      return;
     }
-    console.log("Proxy cleared.");
+    const successMessage = "Proxy cleared successfully.";
+    console.log(successMessage);
     currentProxy = null;
     updatePopupState(false, null);
+    if (callback) callback(true, successMessage);
   });
 }
 
@@ -56,20 +73,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log("Message received in background:", request);
   if (request.action === "connect") {
     if (request.country && PROXY_SERVERS[request.country]) {
-      setProxy(request.country);
-      sendResponse({ success: true, message: "Connecting..." });
+      setProxy(request.country, (success, message) => {
+        sendResponse({ success: success, message: message });
+      });
     } else {
-      sendResponse({ success: false, message: "Invalid country selected." });
+      // This case should ideally be caught by the 'No proxy configuration' in setProxy,
+      // but as a safeguard or for non-existent country codes:
+      sendResponse({ success: false, message: "Invalid country selected or no configuration available." });
     }
   } else if (request.action === "disconnect") {
-    clearProxy();
-    sendResponse({ success: true, message: "Disconnecting..." });
+    clearProxy((success, message) => {
+      sendResponse({ success: success, message: message });
+    });
   } else if (request.action === "getStatus") {
     sendResponse({
       success: true,
       isConnected: !!currentProxy,
       country: currentProxy
     });
+  } else if (request.action === "getProxyServers") {
+    sendResponse({ success: true, servers: PROXY_SERVERS });
   }
   return true; // Indicates that the response will be sent asynchronously
 });
