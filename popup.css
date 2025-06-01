@@ -1,0 +1,64 @@
+body {
+  font-family: sans-serif;
+  width: 250px;
+  padding: 10px;
+  background-color: #f4f4f4;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.status-section, .location-section {
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+#status {
+  font-weight: bold;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  box-sizing: border-box; /* Ensures padding doesn't affect overall width */
+}
+
+button {
+  background-color: #0078D4;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+}
+
+button:hover {
+  background-color: #005a9e;
+}
+
+button.connected {
+    background-color: #d9534f; /* Red for connected state, implying "Disconnect" */
+}
+
+button.connected:hover {
+    background-color: #c9302c;
+}
